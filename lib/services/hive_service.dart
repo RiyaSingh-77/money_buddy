@@ -1,4 +1,3 @@
-//talks to hive, Keeps database code out of UI.
 import 'package:hive/hive.dart';
 
 import '../models/transaction_model.dart';
@@ -13,7 +12,9 @@ class HiveService {
   // Opens the transaction box.
   // You should call this once when the app starts, usually in main.dart.
   Future<void> openTransactionBox() async {
-    await Hive.openBox<TransactionModel>(transactionBoxName);
+    if (!Hive.isBoxOpen(transactionBoxName)) {
+      await Hive.openBox<TransactionModel>(transactionBoxName);
+    }
   }
 
   // Gets the already-opened transaction box.

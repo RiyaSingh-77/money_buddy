@@ -3,7 +3,18 @@ import 'package:provider/provider.dart';
 
 import '../models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
+import 'add_transaction_screen.dart';
 
+// Before using this file, make sure Provider is installed:
+// flutter pub add provider
+//
+// This file should be placed at:
+// lib/screens/home_screen.dart
+//
+// It depends on:
+// lib/models/transaction_model.dart
+// lib/providers/transaction_provider.dart
+// lib/screens/add_transaction_screen.dart
 
 // HomeScreen is a StatelessWidget because the transaction data comes from Provider.
 // The screen itself does not need to own local state.
@@ -19,7 +30,6 @@ class HomeScreen extends StatelessWidget {
         // Gets all transactions from the provider.
         final transactions = transactionProvider.transactions;
 
-        // Calculates total income by filtering income transactions and adding their amounts.
         final totalIncome = transactions
             .where((transaction) => transaction.type == TransactionType.income)
             .fold<double>(
@@ -27,7 +37,6 @@ class HomeScreen extends StatelessWidget {
               (total, transaction) => total + transaction.amount,
             );
 
-        // Calculates total expense by filtering expense transactions and adding their amounts.
         final totalExpense = transactions
             .where((transaction) => transaction.type == TransactionType.expense)
             .fold<double>(
@@ -35,32 +44,33 @@ class HomeScreen extends StatelessWidget {
               (total, transaction) => total + transaction.amount,
             );
 
-        // Balance is income minus expense.
         final balance = totalIncome - totalExpense;
 
-        // Scaffold gives the screen its main structure:
-        // app bar at the top and body content below it.
         return Scaffold(
-          // AppBar is the top bar of the screen.
-          // It usually contains the page title and actions.
           appBar: AppBar(
             title: const Text('Money Buddy'),
           ),
 
-          // SafeArea keeps content away from notches, status bars, and system UI.
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddTransactionScreen(),
+                ),
+              );
+            },
+            child: const Icon(Icons.add),
+          ),
+
           body: SafeArea(
-            // Padding adds space around the screen content.
             child: Padding(
               padding: const EdgeInsets.all(16),
-
-              // Column arranges widgets vertically.
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Row arranges the summary cards horizontally.
                   Row(
                     children: [
-                      // Expanded lets each card share the available row width.
                       Expanded(
                         child: _SummaryCard(
                           title: 'Income',
@@ -79,16 +89,12 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-
-                  // Balance card uses the full width so it feels more important.
                   _SummaryCard(
                     title: 'Balance',
                     amount: balance,
                     color: balance >= 0 ? Colors.blue : Colors.orange,
                   ),
                   const SizedBox(height: 24),
-
-                  // Text is used here as a simple section heading.
                   const Text(
                     'Transactions',
                     style: TextStyle(
@@ -97,17 +103,11 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // Expanded gives the transaction list the remaining screen height.
                   Expanded(
-                    // Shows an empty message when there are no transactions yet.
                     child: transactions.isEmpty
                         ? const Center(
                             child: Text('No transactions yet'),
                           )
-
-                        // ListView.builder creates list items only when they are needed.
-                        // This is better than creating all rows at once for long lists.
                         : ListView.builder(
                             itemCount: transactions.length,
                             itemBuilder: (context, index) {
@@ -129,7 +129,6 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// This private widget displays one summary value, like income, expense, or balance.
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
     required this.title,
@@ -143,7 +142,6 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Card gives the summary a separate visual container.
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -167,7 +165,6 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-// This private widget displays one transaction row in the ListView.
 class _TransactionTile extends StatelessWidget {
   const _TransactionTile({
     required this.transaction,
@@ -179,7 +176,6 @@ class _TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isIncome = transaction.type == TransactionType.income;
 
-    // ListTile is a ready-made row widget with title, subtitle, leading icon, and trailing text.
     return Card(
       child: ListTile(
         leading: CircleAvatar(
@@ -191,7 +187,7 @@ class _TransactionTile extends StatelessWidget {
         ),
         title: Text(transaction.title),
         subtitle: Text(
-          '${transaction.date.day}/${transaction.date.month}/${transaction.date.year}',
+          '${transaction.date.day}/${transaction.date.month}/${transaction.date.year} • ${isIncome ? 'Income' : 'Expense'}',
         ),
         trailing: Text(
           '${isIncome ? '+' : '-'}${transaction.amount.toStringAsFixed(2)}',
