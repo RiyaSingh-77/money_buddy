@@ -1,62 +1,35 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../models/transaction_model.dart';
-
-// fl_chart is used because it gives Flutter-ready chart widgets like BarChart,
-// LineChart, and PieChart without manually drawing charts using CustomPainter.
-// For this app, BarChart is a good choice because income vs expense is a simple comparison.
-
-class ChartWidget extends StatelessWidget {
-  const ChartWidget({
+// BarChartWidget compares two amounts — income and expense — as side-by-side
+// bars. Like PieChartWidget, it only takes the two totals (not the full
+// transaction list), so any screen can reuse it for any month, year, or
+// custom date range just by computing two numbers and passing them in.
+class BarChartWidget extends StatelessWidget {
+  const BarChartWidget({
     super.key,
-    required this.transactions,
-    required this.selectedMonth,
-    required this.selectedYear,
+    required this.income,
+    required this.expense,
+    this.incomeColor = const Color(0xFF168A4A),
+    this.expenseColor = const Color(0xFFD43D32),
   });
 
-  // The full transaction list comes from Provider.
-  // This widget filters it to only the selected month and year.
-  final List<TransactionModel> transactions;
-  final int selectedMonth;
-  final int selectedYear;
+  final double income;
+  final double expense;
+
+  final Color incomeColor;
+  final Color expenseColor;
 
   @override
   Widget build(BuildContext context) {
-    // Chart data is calculated by first keeping only transactions
-    // from the selected month and selected year.
-    final monthlyTransactions = transactions.where((transaction) {
-      return transaction.date.month == selectedMonth &&
-          transaction.date.year == selectedYear;
-    }).toList();
-
-    // Total monthly income is calculated by taking only income transactions
-    // and adding their amounts together.
-    final monthlyIncome = monthlyTransactions
-        .where((transaction) => transaction.type == TransactionType.income)
-        .fold<double>(
-          0,
-          (total, transaction) => total + transaction.amount,
-        );
-
-    // Total monthly expense is calculated the same way,
-    // but only for expense transactions.
-    final monthlyExpense = monthlyTransactions
-        .where((transaction) => transaction.type == TransactionType.expense)
-        .fold<double>(
-          0,
-          (total, transaction) => total + transaction.amount,
-        );
-
     // This value helps the chart choose a sensible height for the bars.
     // If both totals are zero, we use 1 to avoid an empty chart scale.
-    final highestAmount = monthlyIncome > monthlyExpense
-        ? monthlyIncome
-        : monthlyExpense;
+    final highestAmount = income > expense ? income : expense;
     final maxY = highestAmount == 0 ? 1.0 : highestAmount * 1.2;
 
-    // LayoutBuilder makes the chart mobile responsive.
-    // It lets us read the available width and adjust spacing for smaller screens.
+    // LayoutBuilder makes the chart responsive: bar width and reserved
+    // label space adjust based on how much horizontal room is available,
+    // so it reads well on a small phone or a wide screen.
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxWidth < 360;
@@ -74,7 +47,7 @@ class ChartWidget extends StatelessWidget {
               // Grid lines make it easier to read the bar values.
               gridData: const FlGridData(show: true),
 
-              // Border is hidden for a cleaner mobile UI.
+              // Border is hidden for a cleaner UI.
               borderData: FlBorderData(show: false),
 
               // These titles label the bottom of the chart as Income and Expense.
@@ -96,11 +69,17 @@ class ChartWidget extends StatelessWidget {
                     showTitles: true,
                     getTitlesWidget: (value, meta) {
                       if (value == 0) {
-                        return const Text('Income');
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text('Income'),
+                        );
                       }
 
                       if (value == 1) {
-                        return const Text('Expense');
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text('Expense'),
+                        );
                       }
 
                       return const SizedBox.shrink();
@@ -116,9 +95,9 @@ class ChartWidget extends StatelessWidget {
                   x: 0,
                   barRods: [
                     BarChartRodData(
-                      toY: monthlyIncome,
+                      toY: income,
                       width: barWidth,
-                      color: Colors.green,
+                      color: incomeColor,
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ],
@@ -127,9 +106,9 @@ class ChartWidget extends StatelessWidget {
                   x: 1,
                   barRods: [
                     BarChartRodData(
-                      toY: monthlyExpense,
+                      toY: expense,
                       width: barWidth,
-                      color: Colors.red,
+                      color: expenseColor,
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ],

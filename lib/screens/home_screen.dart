@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
 import 'add_transaction_screen.dart';
+import 'statistics_screen.dart';
 
 // HomeScreen is a StatelessWidget because the transaction data comes from Provider.
 // The screen itself does not need to own local state.
@@ -46,6 +47,20 @@ class HomeScreen extends StatelessWidget {
             elevation: 0,
             backgroundColor: Theme.of(context).colorScheme.surface,
             foregroundColor: Theme.of(context).colorScheme.onSurface,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.bar_chart_rounded),
+                tooltip: 'Statistics',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const StatisticsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
 
           floatingActionButton: FloatingActionButton(
