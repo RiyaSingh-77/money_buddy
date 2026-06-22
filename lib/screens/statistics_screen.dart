@@ -5,6 +5,7 @@ import '../models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
 import '../widgets/bar_chart_widget.dart';
 import '../widgets/pie_chart_widget.dart';
+import '../widgets/transactions_pie_chart_widget.dart';
 
 // StatisticsScreen shows the current month's income, expense, and savings,
 // plus two charts (pie + bar) that visualize the same numbers two different
@@ -140,6 +141,32 @@ class StatisticsScreen extends StatelessWidget {
                       child: BarChartWidget(
                         income: incomeTotal,
                         expense: expenseTotal,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Text(
+                    'Transactions Breakdown',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Same donut style as the Income vs Expense chart above,
+                  // but with one slice per transaction title instead of
+                  // a fixed Income/Expense split.
+                  Card(
+                    elevation: 0,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: TransactionsPieChartWidget(
+                        transactions: monthlyTransactions,
                       ),
                     ),
                   ),

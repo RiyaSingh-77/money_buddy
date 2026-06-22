@@ -5,6 +5,7 @@ import '../models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
 import 'add_transaction_screen.dart';
 import 'statistics_screen.dart';
+import '../widgets/monthly_summary_widget.dart';
 
 // HomeScreen is a StatelessWidget because the transaction data comes from Provider.
 // The screen itself does not need to own local state.
@@ -76,110 +77,144 @@ class HomeScreen extends StatelessWidget {
           ),
 
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final useTwoColumns = constraints.maxWidth >= 520;
+            child: CustomScrollView(
+              slivers: [
+                // Everything above the transaction list — summary cards,
+                // balance, and MonthlySummaryWidget — lives in one
+                // SliverToBoxAdapter so it scrolls as part of the same
+                // scroll view as the list below, instead of being a fixed
+                // non-scrolling block that can overflow on smaller screens.
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final useTwoColumns = constraints.maxWidth >= 520;
 
-                      final incomeCard = _SummaryCard(
-                        title: 'Income',
-                        amount: totalIncome,
-                        icon: Icons.trending_up,
-                        color: const Color(0xFF168A4A),
-                      );
+                            final incomeCard = _SummaryCard(
+                              title: 'Income',
+                              amount: totalIncome,
+                              icon: Icons.trending_up,
+                              color: const Color(0xFF168A4A),
+                            );
 
-                      final expenseCard = _SummaryCard(
-                        title: 'Expense',
-                        amount: totalExpense,
-                        icon: Icons.trending_down,
-                        color: const Color(0xFFD43D32),
-                      );
+                            final expenseCard = _SummaryCard(
+                              title: 'Expense',
+                              amount: totalExpense,
+                              icon: Icons.trending_down,
+                              color: const Color(0xFFD43D32),
+                            );
 
-                      if (useTwoColumns) {
-                        return Row(
+                            if (useTwoColumns) {
+                              return Row(
+                                children: [
+                                  Expanded(child: incomeCard),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: expenseCard),
+                                ],
+                              );
+                            }
+
+                            return Column(
+                              children: [
+                                incomeCard,
+                                const SizedBox(height: 12),
+                                expenseCard,
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _SummaryCard(
+                          title: 'Balance',
+                          amount: balance,
+                          icon: Icons.account_balance_wallet,
+                          color: balance >= 0
+                              ? const Color(0xFF2364AA)
+                              : const Color(0xFFE07828),
+                          isLarge: true,
+                        ),
+                        const SizedBox(height: 28),
+
+                        // MonthlySummaryWidget reads from the provider on
+                        // its own, so no data needs to be passed in here.
+                        const MonthlySummaryWidget(),
+                        const SizedBox(height: 28),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Expanded(child: incomeCard),
-                            const SizedBox(width: 12),
-                            Expanded(child: expenseCard),
-                          ],
-                        );
-                      }
-
-                      return Column(
-                        children: [
-                          incomeCard,
-                          const SizedBox(height: 12),
-                          expenseCard,
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _SummaryCard(
-                    title: 'Balance',
-                    amount: balance,
-                    icon: Icons.account_balance_wallet,
-                    color: balance >= 0
-                        ? const Color(0xFF2364AA)
-                        : const Color(0xFFE07828),
-                    isLarge: true,
-                  ),
-                  const SizedBox(height: 28),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Transactions',
-                        style:
-                            Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                      ),
-                      Text(
-                        '${transactions.length} total',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: transactions.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No transactions yet',
+                            Text(
+                              'Transactions',
                               style: Theme.of(context)
                                   .textTheme
-                                  .bodyLarge
+                                  .titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                            Text(
+                              '${transactions.length} total',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
                                   ?.copyWith(
                                     color: Theme.of(context)
                                         .colorScheme
                                         .onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
                                   ),
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.only(bottom: 96),
-                            itemCount: transactions.length,
-                            itemBuilder: (context, index) {
-                              final transaction = transactions[index];
-
-                              return _TransactionTile(
-                                transaction: transaction,
-                              );
-                            },
-                          ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+
+                // Transaction list (or empty state) as its own sliver, so
+                // it scrolls in the same gesture as the header above
+                // rather than needing its own separate scrollable area.
+                if (transactions.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 40),
+                      child: Center(
+                        child: Text(
+                          'No transactions yet',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final transaction = transactions[index];
+
+                          return _TransactionTile(
+                            transaction: transaction,
+                          );
+                        },
+                        childCount: transactions.length,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         );
