@@ -256,62 +256,158 @@ class _TransactionTile extends StatelessWidget {
 
   final TransactionModel transaction;
 
+  // Shows a confirmation dialog before a swipe-to-delete is allowed to
+  // complete. Dismissible calls this and waits for the Future<bool?> to
+  // resolve: true lets the dismiss animation finish, anything else
+  // (false or null, e.g. tapping outside the dialog) cancels it and the
+  // tile slides back into place.
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete transaction?'),
+          content: Text(
+            'This will permanently delete "${transaction.title}". This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type == TransactionType.income;
     final color = isIncome ? const Color(0xFF168A4A) : const Color(0xFFD43D32);
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+    return Dismissible(
+      // A stable, unique key lets Flutter correctly track this specific
+      // tile across rebuilds even as items above/below it are added or removed.
+      key: Key(transaction.id),
+
+      // Only allow swiping right-to-left, the common convention for delete.
+      direction: DismissDirection.endToStart,
+
+      // Confirmation dialog runs first; the swipe only completes if the
+      // user taps "Delete".
+      confirmDismiss: (_) => _confirmDelete(context),
+
+      // Red "delete" background revealed behind the tile while swiping.
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.error,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Icon(
+          Icons.delete,
+          color: Theme.of(context).colorScheme.onError,
+        ),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 8,
+
+      // Fires only after confirmDismiss resolves to true.
+      // Deletes from Hive + the provider's in-memory list, then
+      // notifyListeners() refreshes the dashboard automatically.
+      onDismissed: (_) {
+        context.read<TransactionProvider>().deleteTransaction(transaction.id);
+      },
+
+      child: Card(
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 10),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
         ),
-        // Opens AddTransactionScreen in edit mode with this transaction
-        // passed in, so the form is prefilled with its existing values.
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddTransactionScreen(
-                existingTransaction: transaction,
-              ),
-            ),
-          );
-        },
-        leading: CircleAvatar(
-          radius: 22,
-          backgroundColor: color.withOpacity(0.14),
-          child: Icon(
-            isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-            color: color,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 8,
           ),
-        ),
-        title: Text(
-          transaction.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
+          // Opens AddTransactionScreen in edit mode with this transaction
+          // passed in, so the form is prefilled with its existing values.
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddTransactionScreen(
+                  existingTransaction: transaction,
+                ),
               ),
-        ),
-        subtitle: Text(
-          '${transaction.date.day}/${transaction.date.month}/${transaction.date.year} • ${isIncome ? 'Income' : 'Expense'}',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+            );
+          },
+          leading: CircleAvatar(
+            radius: 22,
+            backgroundColor: color.withOpacity(0.14),
+            child: Icon(
+              isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+              color: color,
+            ),
+          ),
+          title: Text(
+            transaction.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          subtitle: Text(
+            '${transaction.date.day}/${transaction.date.month}/${transaction.date.year} • ${isIncome ? 'Income' : 'Expense'}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          // trailing now holds the amount AND a visible delete button.
+          // The swipe-to-delete gesture from Dismissible still works too,
+          // but a tappable icon is far more discoverable, especially on
+          // web/desktop where dragging with a mouse is less intuitive
+          // than swiping on a touchscreen.
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${isIncome ? '+' : '-'}₹${transaction.amount.toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-        ),
-        trailing: Text(
-          '${isIncome ? '+' : '-'}₹${transaction.amount.toStringAsFixed(2)}',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w900,
+              const SizedBox(width: 4),
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                tooltip: 'Delete',
+                // Same confirmation dialog as the swipe gesture, then the
+                // same delete call: Hive + provider + dashboard refresh.
+                onPressed: () async {
+                  final confirmed = await _confirmDelete(context);
+
+                  if (confirmed == true) {
+                    context
+                        .read<TransactionProvider>()
+                        .deleteTransaction(transaction.id);
+                  }
+                },
+              ),
+            ],
           ),
         ),
       ),
