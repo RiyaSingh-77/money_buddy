@@ -246,6 +246,9 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // This private widget displays one transaction row in the ListView.
+// Tapping it opens AddTransactionScreen prefilled with this transaction's
+// data, so the user can edit it. Saving there updates Hive + the provider,
+// and this screen rebuilds automatically because it listens via Consumer.
 class _TransactionTile extends StatelessWidget {
   const _TransactionTile({
     required this.transaction,
@@ -270,6 +273,18 @@ class _TransactionTile extends StatelessWidget {
           horizontal: 14,
           vertical: 8,
         ),
+        // Opens AddTransactionScreen in edit mode with this transaction
+        // passed in, so the form is prefilled with its existing values.
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddTransactionScreen(
+                existingTransaction: transaction,
+              ),
+            ),
+          );
+        },
         leading: CircleAvatar(
           radius: 22,
           backgroundColor: color.withOpacity(0.14),

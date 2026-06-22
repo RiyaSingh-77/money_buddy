@@ -7,8 +7,17 @@ import '../providers/transaction_provider.dart';
 
 // AddTransactionScreen is StatefulWidget because the form fields, dropdown,
 // and selected date change while the user is filling the form.
+//
+// This screen now works for BOTH adding a new transaction and editing an
+// existing one. Pass `existingTransaction` to open it in edit mode:
+// the form will be prefilled and saving will update the existing record
+// instead of creating a new one.
 class AddTransactionScreen extends StatefulWidget {
-  const AddTransactionScreen({super.key});
+  const AddTransactionScreen({super.key, this.existingTransaction});
+
+  // When this is null, the screen behaves as "Add Transaction".
+  // When it is not null, the screen behaves as "Edit Transaction".
+  final TransactionModel? existingTransaction;
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -21,16 +30,38 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   // TextEditingController lets us read and control the text typed by the user.
   // This controller stores the title input value.
-  final _titleController = TextEditingController();
+  late final TextEditingController _titleController;
 
   // This controller stores the amount input value.
-  final _amountController = TextEditingController();
+  late final TextEditingController _amountController;
 
-  // The dropdown starts with expense selected because users usually add expenses more often.
-  TransactionType _selectedType = TransactionType.expense;
+  // The dropdown starts with expense selected because users usually add expenses more often,
+  // unless we are editing a transaction, in which case we prefill its actual type.
+  late TransactionType _selectedType;
 
-  // The date picker starts with today's date.
-  DateTime _selectedDate = DateTime.now();
+  // The date picker starts with today's date, unless we are editing a transaction,
+  // in which case we prefill its actual date.
+  late DateTime _selectedDate;
+
+  // Convenience getter so the build method and _saveTransaction can both
+  // easily check whether we are editing or adding.
+  bool get _isEditing => widget.existingTransaction != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final existing = widget.existingTransaction;
+
+    // Prefill every field from the existing transaction when editing.
+    // When adding, fall back to the original sensible defaults.
+    _titleController = TextEditingController(text: existing?.title ?? '');
+    _amountController = TextEditingController(
+      text: existing != null ? existing.amount.toString() : '',
+    );
+    _selectedType = existing?.type ?? TransactionType.expense;
+    _selectedDate = existing?.date ?? DateTime.now();
+  }
 
   @override
   void dispose() {
@@ -69,15 +100,26 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     final transaction = TransactionModel(
-      // DateTime.now().microsecondsSinceEpoch gives a simple unique id for learning projects.
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      // Reuse the original id when editing so Hive's put() overwrites the
+      // same record instead of creating a brand new one.
+      // DateTime.now().microsecondsSinceEpoch gives a simple unique id for new transactions.
+      id: widget.existingTransaction?.id ??
+          DateTime.now().microsecondsSinceEpoch.toString(),
       title: _titleController.text.trim(),
       amount: double.parse(_amountController.text.trim()),
       date: _selectedDate,
       type: _selectedType,
     );
 
-    await context.read<TransactionProvider>().addTransaction(transaction);
+    final provider = context.read<TransactionProvider>();
+
+    if (_isEditing) {
+      // Updates Hive and the provider's in-memory list, then notifyListeners()
+      // inside the provider refreshes the dashboard automatically.
+      await provider.updateTransaction(transaction);
+    } else {
+      await provider.addTransaction(transaction);
+    }
 
     if (!mounted) {
       return;
@@ -91,7 +133,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Transaction'),
+        title: Text(_isEditing ? 'Edit Transaction' : 'Add Transaction'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -192,7 +234,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 // ElevatedButton is the main action button for saving the form.
                 ElevatedButton(
                   onPressed: _saveTransaction,
-                  child: const Text('Save Transaction'),
+                  child: Text(_isEditing ? 'Update Transaction' : 'Save Transaction'),
                 ),
               ],
             ),
